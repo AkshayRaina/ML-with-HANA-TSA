@@ -1,0 +1,89 @@
+PROCEDURE "NAYAKA"."workshop.sessiona.01.data::checksentiment" (
+	IN TEXT NVARCHAR(200),
+	OUT POS DECIMAL,
+	OUT NEG DECIMAL,
+	OUT NEUT DECIMAL
+ ) 
+	LANGUAGE SQLSCRIPT
+	SQL SECURITY INVOKER 
+	--DEFAULT SCHEMA <default_schema_name>
+	READS SQL DATA AS
+BEGIN
+/***************************** 
+	Write your procedure logic 
+ *****************************/
+ 	declare _items nvarchar(100) ARRAY;
+	declare _text nvarchar(100);
+	declare _index integer;
+	declare _pospart decimal;
+	declare _negpart decimal;
+	declare _neutpart decimal;
+	declare _pos integer;
+	declare _neg integer;
+	declare _neut integer;
+	declare _total integer;
+	declare i integer;
+	declare _found integer;
+	_found := 0;
+	_text := :TEXT;
+	_index := 1;
+	_pospart := 1.0;
+	_negpart := 1.0;
+	_neutpart := 1.0;
+	
+	WHILE LOCATE(:_text,' ') > 0 DO
+		_items[:_index] := SUBSTR_BEFORE(:_text,' ');
+		_text := SUBSTR_AFTER(:_text,' ');
+		_index := :_index + 1;
+	END WHILE;
+	
+	_items[:_index] := :_text;
+	/*rst = UNNEST(:_items) AS ("items");
+  	SELECT * FROM :rst;*/
+	FOR i in 1..:_index DO
+		_pos := 0;
+		select count("frequency") into _found from "NAYAKA"."workshop.sessiona.01.data::posfrequency" where "word"=:_items[i];
+		IF :_found <> 0
+		THEN
+		select "frequency" into _pos from "NAYAKA"."workshop.sessiona.01.data::posfrequency" where "word"=:_items[i];	
+		END IF;
+		_neg := 0;
+		select count("frequency") into _found from "NAYAKA"."workshop.sessiona.01.data::negfrequency" where "word"=:_items[i];
+		IF :_found <> 0
+		THEN
+		select "frequency" into _neg from "NAYAKA"."workshop.sessiona.01.data::negfrequency" where "word"=:_items[i];	
+		END IF;
+		_neut := 0;
+		select count("frequency") into _found from "NAYAKA"."workshop.sessiona.01.data::neutfrequency" where "word"=:_items[i];
+		IF :_found <> 0
+		THEN
+		select "frequency" into _neut from "NAYAKA"."workshop.sessiona.01.data::neutfrequency" where "word"=:_items[i];	
+		END IF;
+		
+		_total := :_pos + :_neg + :_neut;
+		
+		IF :_pos = 0
+		THEN
+		_pospart := :_pospart * 0.1;
+		ELSE
+		_pospart := :_pospart * (:_pos/:_total);
+		END IF;
+		
+		IF :_neg = 0
+		THEN
+		_negpart := :_negpart * 0.1;
+		ELSE
+		_negpart := :_negpart * (:_neg/:_total);
+		END IF;
+		
+		IF :_neut = 0
+		THEN
+		_neutpart := :_neutpart * 0.1;
+		ELSE
+		_neutpart := :_neutpart * (:_neut/:_total);
+		END IF;
+	END FOR;
+	POS := :_pospart;
+	NEG := :_negpart;
+	NEUT := :_neutpart;
+END;

@@ -1,0 +1,6 @@
+table.schemaName = "NAYAKA";
+table.tableType = COLUMNSTORE;
+table.columns = [
+	{name = "content"; sqlType = NVARCHAR; nullable = false; length = 200;},
+	{name = "sentiments"; sqlType = INTEGER; nullable = false;}
+];

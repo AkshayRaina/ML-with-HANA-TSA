@@ -1,0 +1,94 @@
+PROCEDURE "NAYAKA"."workshop.sessiona.01.data::sentimentanalysis" (
+	IN TEXT NVARCHAR(150),
+	OUT POS DECIMAL,
+	OUT NEG DECIMAL,
+	OUT NEUT DECIMAL
+) 
+	LANGUAGE SQLSCRIPT
+	SQL SECURITY INVOKER 
+	--DEFAULT SCHEMA <default_schema_name>
+	READS SQL DATA AS
+BEGIN
+/***************************** 
+	Write your procedure logic 
+ *****************************/
+ 	DECLARE _item NVARCHAR(150) ARRAY;
+ 	DECLARE _text NVARCHAR(150);
+ 	DECLARE _index INTEGER;
+ 	DECLARE i INTEGER;
+ 	DECLARE _pos INTEGER;
+ 	DECLARE _neg INTEGER;
+ 	DECLARE _neut INTEGER;
+ 	DECLARE _total INTEGER;
+ 	DECLARE _posprob DECIMAL;
+ 	DECLARE _negprob DECIMAL;
+ 	DECLARE _neutprob DECIMAL;
+ 	DECLARE _found INTEGER;
+ 	
+ 	_index := 1;
+ 	_text := :TEXT;
+ 	_posprob := 1.0;
+ 	_negprob := 1.0;
+ 	_neutprob := 1.0;
+ 	
+ 	WHILE LOCATE(:_text, ' ') > 0 DO
+ 		_item[:_index] := SUBSTR_BEFORE(:_text, ' ');
+ 		_text := SUBSTR_AFTER(:_text, ' ');
+ 		_index := :_index + 1;
+ 	END WHILE;
+ 	
+ 	_item[:_index] := :_text;
+ 	
+ 	/*rst = UNNEST(:_item) AS ("item");
+ 	SELECT * FROM :rst;*/
+ 	
+ 	FOR i in 1..:_index DO
+ 		_pos := 0;
+ 		SELECT COUNT("frequency") INTO _found FROM "NAYAKA"."workshop.sessiona.01.data::posfrequency" WHERE "word"=:_item[i];
+ 		IF :_found <> 0
+ 			THEN
+ 			SELECT "frequency" INTO _pos FROM "NAYAKA"."workshop.sessiona.01.data::posfrequency" WHERE "word"=:_item[i];
+ 		END IF;
+ 		
+ 		_neg := 0;
+ 		SELECT COUNT("frequency") INTO _found FROM "NAYAKA"."workshop.sessiona.01.data::negfrequency" WHERE "word"=:_item[i];
+ 		IF :_found <> 0
+ 			THEN
+ 			SELECT "frequency" INTO _neg FROM "NAYAKA"."workshop.sessiona.01.data::negfrequency" WHERE "word"=:_item[i];
+ 		END IF;
+ 		
+  		_neut := 0;
+ 		SELECT COUNT("frequency") INTO _found FROM "NAYAKA"."workshop.sessiona.01.data::neutfrequency" WHERE "word"=:_item[i];
+ 		IF :_found <> 0
+ 			THEN
+ 			SELECT "frequency" INTO _neut FROM "NAYAKA"."workshop.sessiona.01.data::neutfrequency" WHERE "word"=:_item[i];
+ 		END IF;
+ 		
+ 		_total := :_pos + :_neg + :_neut;
+ 		
+ 		IF :_pos = 0
+ 			THEN
+ 			_posprob := :_posprob * 0.1;
+ 		ELSE
+ 			_posprob := :_posprob * (:_pos/:_total);
+ 		END IF;	
+ 		
+ 		IF :_neg = 0
+ 			THEN
+ 			_negprob := :_negprob * 0.1;
+ 		ELSE
+ 			_negprob := :_negprob * (:_neg/:_total);
+ 		END IF;	
+ 		
+ 		IF :_neut = 0
+ 			THEN
+ 			_neutprob := :_neutprob * 0.1;
+ 		ELSE
+ 			_neutprob := :_neutprob * (:_neut/:_total);
+ 		END IF;	
+ 	END FOR;
+ 	
+ 	POS := :_posprob;
+ 	NEG := :_negprob;
+ 	NEUT := :_neutprob;
+END;
